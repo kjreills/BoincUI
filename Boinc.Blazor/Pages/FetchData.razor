@@ -1,0 +1,168 @@
+﻿@page "/hosts"
+@inject HostService HostService
+
+<PageTitle>Hosts</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">BOINC Hosts</MudText>
+<MudText Class="mb-8">This component demonstrates fetching data from the server.</MudText>
+
+<MudGrid>
+    <MudItem xs="4">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="@Typo.h6">Connect a host</MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudIcon Icon="@Icons.Filled.AddToQueue" Title="Connect a host" Color="Color.Primary" Size="Size.Large" />
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTextField @bind-Value="@newHost.Uri"
+                              Label="Hostname or IP Address"
+                              HelperText="Don't include http://"
+                              Variant="Variant.Outlined"
+                              Placeholder="192.168.1.100"
+                              Margin="Margin.Dense" />
+
+                <MudNumericField HideSpinButtons="true"
+                                 @bind-Value="@newHost.Port"
+                                 Label="Port"
+                                 HelperText="Default is 31416"
+                                 Min="0"
+                                 Max="65535"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
+
+                <MudTextField @bind-Value="@newHost.AuthKey"
+                              Label="Password"
+                              HelperText="Find this in a file named gui_rpc_auth.cfg"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense" />
+
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="AddHostAsync">Connect</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    @if (BoincHostConnector.BoincHosts.Any())
+    {
+        @foreach (var host in BoincHostConnector.BoincHosts)
+        {
+            <MudItem xs="12" md="6" lg="4">
+                @if (host.ClientState != null)
+                {
+                    <MudCard>
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@host.ClientState.HostInfo.DomainName</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudTooltip Text="@host.ClientState.HostInfo.OSName">
+                                    <MudIcon Icon="@OsIcon(host.ClientState.HostInfo.OSName)" Size="Size.Large" Color="Color.Default" />
+                                </MudTooltip>
+
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudText>@host.Uri</MudText>
+                            <MudText>@host.ClientState.HostInfo.OSName</MudText>
+                            <MudText>@host.ClientState.HostInfo.HostCPID</MudText>
+                            <MudText>@host.ClientState.HostInfo.NumberOfCpus</MudText>
+                            <MudText>@host.ClientState.HostInfo.ProcessorModel</MudText>
+                            <MudText>@host.ClientState.TimeStatistics.OnFraction</MudText>
+
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="delete" OnClick="() => RemoveHost(host)"></MudIconButton>
+                        </MudCardActions>
+                    </MudCard>
+                }
+                else
+                {
+                    <MudCard>
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@host.Uri</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudIcon Icon="@Icons.Filled.ErrorOutline" Color="Color.Default" />
+                            </CardHeaderActions>
+                        </MudCardHeader>
+
+                        <MudCardContent>
+                            <MudAlert Severity="Severity.Warning">@host.Status.Status</MudAlert>
+                            <MudAlert Severity="Severity.Warning">@host.Status.Message</MudAlert>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="delete" OnClick="() => RemoveHost(host)"></MudIconButton>
+                        </MudCardActions>
+                    </MudCard>
+                }
+            </MudItem>
+        }
+    }
+
+</MudGrid>
+
+
+
+@code {
+    private IReadOnlyList<BoincHostViewModel> hosts = new List<BoincHostViewModel>();
+    private BoincHost newHost = new BoincHost { Id = 0, Uri = "" };
+
+    protected override Task OnInitializedAsync()
+    {
+        hosts = BoincHostConnector.BoincHosts;
+
+        BoincHostConnector.HostsUpdated += Refresh;
+
+        return Task.CompletedTask;
+    }
+
+    private async void Refresh(object? sender, EventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            hosts = BoincHostConnector.BoincHosts;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        BoincHostConnector.HostsUpdated -= Refresh;
+    }
+
+    private async Task AddHostAsync()
+    {
+        await HostService.AddHost(newHost);
+        newHost = new BoincHost { Id = 0, Uri = "" };
+    }
+
+    private async Task RemoveHost(BoincHostViewModel host)
+    {
+        await HostService.RemoveHost(host);
+    }
+
+    protected string OsIcon(string osName)
+    {
+        if (osName.Contains("windows", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return Icons.Custom.Brands.MicrosoftWindows;
+        }
+
+        if (osName.Contains("linux", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return Icons.Custom.Brands.Linux;
+        }
+
+        if (osName.Contains("macos", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return Icons.Custom.Brands.Apple;
+        }
+
+        return Icons.Filled.Computer;
+    }
+}
